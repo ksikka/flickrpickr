@@ -1,0 +1,124 @@
+{
+  "packages": {
+    "express": "3.4.4",
+    "ejs": "0.8.5",
+    "flickr": "0.1.0",
+    "mongoose": "3.8.1"
+  },
+  "modules": {
+    "custom": {
+      "custom.txt": "this is custom code\n"
+    }
+  },
+  "models": [
+    {
+      "name": "Picture",
+      "instancemethods": [
+        {
+          "name": "updateUrl",
+          "enableAPI": true,
+          "code": "function (newUrl, cb) {\n      this.url = newUrl;\n      this.save(function(e, d){cb(e,d);});\n    }"
+        }
+      ],
+      "staticmethods": [
+        {
+          "name": "randomNFromFlickr",
+          "enableAPI": true,
+          "code": "function (searchQ, limit, cb) {\n      var flickr = require('flickr');\n      var fcli = new flickr.Flickr('cbe3f7f6cbf9d13ad243a1e1afec902d', '5c3f9a33e088ef60');\n      fcli.executeAPIRequest('flickr.photos.search', {text: searchQ, per_page: limit, extras: ['url_q']},\n                               false, function(e, d){cb(e, d);});\n    }"
+        },
+        {
+          "name": "createPicture",
+          "code": "function (data, callback) {\n    // Calls the mongoose create method of this model. Add validation logic here.\n    return this.create(data, callback);\n}",
+          "enableAPI": true
+        },
+        {
+          "name": "findPicture",
+          "code": "function (conditions, callback) {\n    // Calls the mongoose find method of this model. Add validation logic here.\n    return this.find(conditions, callback);\n}",
+          "enableAPI": true
+        }
+      ],
+      "schemaCode": "new Schema({\n\n    datePicked: Date,\n\n    name: String,\n\n    url: String,\n\n})",
+      "schemaMods": [],
+      "code": "var mongoose = require('mongoose');\n\nvar Schema = mongoose.Schema;\n\n\nvar PictureSchema = new Schema({\n\n    datePicked: Date,\n\n    name: String,\n\n    url: String,\n\n});\n\n\n\nPictureSchema.methods.updateUrl = function (newUrl, cb) {\n      this.url = newUrl;\n      this.save(function(e, d){cb(e,d);});\n    };\n\n\n\n\nPictureSchema.statics.randomNFromFlickr = function (searchQ, limit, cb) {\n      var flickr = require('flickr');\n      var fcli = new flickr.Flickr('cbe3f7f6cbf9d13ad243a1e1afec902d', '5c3f9a33e088ef60');\n      fcli.executeAPIRequest('flickr.photos.search', {text: searchQ, per_page: limit, extras: ['url_q']},\n                               false, function(e, d){cb(e, d);});\n    };\n\n\nPictureSchema.statics.createPicture = function (data, callback) {\n    // Calls the mongoose create method of this model. Add validation logic here.\n    return this.create(data, callback);\n};\n\n\nPictureSchema.statics.findPicture = function (conditions, callback) {\n    // Calls the mongoose find method of this model. Add validation logic here.\n    return this.find(conditions, callback);\n};\n\n\n\n\nexports.Picture = mongoose.model('Picture', PictureSchema);\n"
+    },
+    {
+      "name": "User",
+      "instancemethods": [
+        {
+          "name": "authenticate",
+          "code": "function (plainText) {\n  /**\n   * Authenticate by checking the hashed password and provided password\n   *\n   * @param {String} plainText\n   * @return {Boolean}\n   * @api private\n   */\n    return this.encryptPassword(plainText) === this.hashed_password;\n  }"
+        },
+        {
+          "name": "makeSalt",
+          "code": "function () {\n  /**\n   * Create password salt\n   *\n   * @return {String}\n   * @api private\n   */\n\n    /* Then to regenerate password, use:\n        this.salt = this.makeSalt()\n        this.hashed_password = this.encryptPassword(password)\n    */\n    return Math.round((new Date().valueOf() * Math.random())) + '';\n  }"
+        },
+        {
+          "name": "encryptPassword",
+          "code": "function (password) {\n  /**\n   * Encrypt password\n   *\n   * @param {String} password\n   * @return {String}\n   * @api private\n   */\n    var crypto = require('crypto');\n    if (!password) return '';\n    return crypto.createHmac('sha1', this.salt).update(password).digest('hex');\n  }"
+        },
+        {
+          "name": "resetToken",
+          "code": "function (token, cb) {\n  /**\n   * Reset auth token\n   *\n   * @param {String} token\n   * @param {Function} cb\n   * @api private\n   */\n    var self = this;\n    var crypto = require('crypto');\n    crypto.randomBytes(48, function(ex, buf) {\n      self[token] = buf.toString('hex');\n      if (cb) cb();\n    });\n  }"
+        }
+      ],
+      "staticmethods": [
+        {
+          "name": "signup",
+          "enableAPI": true,
+          "code": "function (username, password, password2, callback) {\n        if (password !== password2) {\n            callback('Passwords don\\'t match. Please try again.');\n        }\n        var user = new this({username: username});\n        user.salt = user.makeSalt();\n        user.hashed_password = user.encryptPassword(password);\n        user.save(function(err, data) {\n            if (err) {\n                callback(err);\n            } else {\n                callback(null, {url:'?success=true'});\n            }\n        });\n    }"
+        }
+      ],
+      "schemaMods": [
+        "function (schema) {\n  schema.path('name').validate(function (name) {\n    return name.trim().length > 0;\n  }, 'Please provide a valid name');\n}",
+        "function (schema) {\n  schema.path('email').validate(function (email) {\n    return email.trim().length > 0;\n  }, 'Please provide a valid email');\n}",
+        "function (schema) {\n  schema.path('hashed_password').validate(function (hashed_password) {\n    return hashed_password.length > 0;\n  }, 'Please provide a password');\n}"
+      ],
+      "schemaCode": "new Schema({\n\n    name: String,\n\n    email: String,\n\n    username: String,\n\n    hashed_password: String,\n\n    salt: String,\n\n})",
+      "code": "var mongoose = require('mongoose');\n\nvar Schema = mongoose.Schema;\n\n\nvar UserSchema = new Schema({\n\n    name: String,\n\n    email: String,\n\n    username: String,\n\n    hashed_password: String,\n\n    salt: String,\n\n});\n\n\n\nUserSchema.methods.authenticate = function (plainText) {\n  /**\n   * Authenticate by checking the hashed password and provided password\n   *\n   * @param {String} plainText\n   * @return {Boolean}\n   * @api private\n   */\n    return this.encryptPassword(plainText) === this.hashed_password;\n  };\n\n\nUserSchema.methods.makeSalt = function () {\n  /**\n   * Create password salt\n   *\n   * @return {String}\n   * @api private\n   */\n\n    /* Then to regenerate password, use:\n        this.salt = this.makeSalt()\n        this.hashed_password = this.encryptPassword(password)\n    */\n    return Math.round((new Date().valueOf() * Math.random())) + '';\n  };\n\n\nUserSchema.methods.encryptPassword = function (password) {\n  /**\n   * Encrypt password\n   *\n   * @param {String} password\n   * @return {String}\n   * @api private\n   */\n    var crypto = require('crypto');\n    if (!password) return '';\n    return crypto.createHmac('sha1', this.salt).update(password).digest('hex');\n  };\n\n\nUserSchema.methods.resetToken = function (token, cb) {\n  /**\n   * Reset auth token\n   *\n   * @param {String} token\n   * @param {Function} cb\n   * @api private\n   */\n    var self = this;\n    var crypto = require('crypto');\n    crypto.randomBytes(48, function(ex, buf) {\n      self[token] = buf.toString('hex');\n      if (cb) cb();\n    });\n  };\n\n\n\n\nUserSchema.statics.signup = function (username, password, password2, callback) {\n        if (password !== password2) {\n            callback('Passwords don\\'t match. Please try again.');\n        }\n        var user = new this({username: username});\n        user.salt = user.makeSalt();\n        user.hashed_password = user.encryptPassword(password);\n        user.save(function(err, data) {\n            if (err) {\n                callback(err);\n            } else {\n                callback(null, {url:'?success=true'});\n            }\n        });\n    };\n\n\n\n\n(function (schema) {\n  schema.path('name').validate(function (name) {\n    return name.trim().length > 0;\n  }, 'Please provide a valid name');\n})(UserSchema);\n\n\n(function (schema) {\n  schema.path('email').validate(function (email) {\n    return email.trim().length > 0;\n  }, 'Please provide a valid email');\n})(UserSchema);\n\n\n(function (schema) {\n  schema.path('hashed_password').validate(function (hashed_password) {\n    return hashed_password.length > 0;\n  }, 'Please provide a password');\n})(UserSchema);\n\n\nexports.User = mongoose.model('User', UserSchema);\n"
+    }
+  ],
+  "templates": [
+    {
+      "name": "Homepage",
+      "code": "<html>\n     <head>\n     <!-- autogenerated css-->     <link href=\"/static/style.css\"></script>     <script src=\"//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js\"></script>    <!-- begin autogenerated api client library -->     <script type=\"text/javascript\"><% include modeldefs %></script>\n     <script src=\"/static/models.js\"></script>     <!-- end autogenerated api client library -->     <script src=\"//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore-min.js\"></script>\n     </head>\n     <body>\n     <style>img.piclist {max-height: 200px; max-width: 300px;}</style>\n<h1>\nSearch Flickr\n</h1>\n<form id=\"myflicksearch\">\n<input type=\"text\" name=\"q\">\n<input type=\"submit\" value=\"Hit the backend!\">\n</form>\n<div id=\"myflickgallery\"></div>\n<h1>Create a Picture</h1>\n<form id=\"testform\">\n\n<input type=\"text\" name=\"name\" placeholder=\"Name\"><br>\n\n<input type=\"text\" name=\"url\" placeholder=\"URL\"><br>\n\n<input type=\"submit\" value=\"Submit\"><br>\n</form>\n\n<div id=\"piclist\"></div>\n<h1>Sign Up</h1>\n<form id=\"signup\">\n<input name=\"username\" type=\"text\" placeholder=\"Username\"><br>\n<input name=\"password\" type=\"password\" placeholder=\"Password\"><br>\n<input name=\"password2\" type=\"password\" placeholder=\"Confirm password\"><br>\n<input type=\"submit\" value=\"Submit\">\n</form>\n<h1>Login</h1>\n<script type=\"text/javascript\">function renderInList (e, d) {    if (e) alert(e);    else {        for (var i = 0; i < d.photos.photo.length; i ++) {            var photo = d.photos.photo[i];            $('#myflickgallery').append('<img src=\"'+photo.url_q+'\">');        }    }}$('#myflicksearch').submit(function() {    var formData = $('#myflicksearch').serializeArray();    models.Picture.randomNFromFlickr(formData[0].value, 10, renderInList);    return false;});</script>\n<script type=\"text/javascript\">$('#testform').submit(function(){\n    var formdata = {};\n    formdata.name = $('#testform input[name=\"name\"]').val();\n    formdata.url = $('#testform input[name=\"url\"]').val();\n    models.Picture.createPicture(formdata, function(err, data){\n        console.log(data);\n        if (err) {\n            // Do whatever you want with user errors\n            alert(err);\n        }\n        else {\n            // You can redirect on success\n            location.href = '/?success=true';\n        }\n    });\n    return false;\n});\n</script>\n<script type=\"text/javascript\">models.Picture.findPicture({}, function(err, data){\n_.each(data, function(d) {$('#piclist').append('<p>'+d.name+'</p><img class=\"piclist\" src=\"'+d.url+'\">'); });\n});</script>\n<script type=\"text/javascript\">$('#signup').submit(function(){\n    var username = $('#signup input[name=\"username\"]').val();\n    var password = $('#signup input[name=\"password\"]').val();\n    var password2 = $('#signup input[name=\"password2\"]').val();\n    models.User.signup(username, password, password2, function(err, data){\n        if (err) { alert(err); }\n        else { location.href = data.url; }\n        \n    });\n    return false;\n});</script>\n     </body>\n </html>\n"
+    },
+    {
+      "name": "rowcoltest",
+      "code": "<html>\n     <head>\n     <!-- autogenerated css-->     <link href=\"/static/style.css\"></script>     <script src=\"//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js\"></script>    <!-- begin autogenerated api client library -->     <script type=\"text/javascript\"><% include modeldefs %></script>\n     <script src=\"/static/models.js\"></script>     <!-- end autogenerated api client library -->     <script src=\"//cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore-min.js\"></script>\n     </head>\n     <body>\n     <div class=\"row\">\n<h1>Search Flickr</h1>\n</div>\n<div class=\"row\">\n<h1>Create a Picture</h1>\n</div>\n     </body>\n </html>\n"
+    }
+  ],
+  "routes": [
+    {
+      "method": "GET",
+      "pattern": "/",
+      "code": "function (req, res) {\n    res.render('Homepage');\n}"
+    },
+    {
+      "method": "GET",
+      "pattern": "/rowcol",
+      "code": "function (req, res) {\n    res.render('');\n}"
+    }
+  ],
+  "generators": {
+    "flickrpickr": {
+      "uielements": [
+        {
+          "name": "flicksearchbar",
+          "version": "0.1",
+          "code": "function (data, templates){\n        // buttonText, searchID, galleryID\n        var uie = {\n            html: templates.html(data),\n            css: '',\n            js: templates.js(data)\n        };\n        return uie;\n    }",
+          "templates": {
+            "html": "<form id=\"<%= searchID %>\">\n<input type=\"text\" name=\"q\">\n<input type=\"submit\" value=\"<%= buttonText %>\">\n</form>",
+            "js": "function renderInList (e, d) {    if (e) alert(e);    else {        for (var i = 0; i < d.photos.photo.length; i ++) {            var photo = d.photos.photo[i];            $('#<%= galleryID %>').append('<img src=\"'+photo.url_q+'\">');        }    }}$('#<%= searchID %>').submit(function() {    var formData = $('#<%= searchID %>').serializeArray();    models.Picture.randomNFromFlickr(formData[0].value, 10, renderInList);    return false;});"
+          }
+        },
+        {
+          "name": "flickgallery",
+          "version": "0.1",
+          "code": "function (data, templates){\n        // galleryID\n        var uie = {\n            html:'<div id=\"'+data.galleryID+'\"></div>',\n            css: '',\n            js: ''\n        };\n        return uie;\n    }",
+          "templates": {}
+        }
+      ]
+    }
+  },
+  "config": "#!/usr/bin/env node\nvar express = require('express')\n  , http = require('http')\n  , path = require('path');\n\n\nvar app = express();\n\napp.configure(function(){\n  app.set('port', (process.argv.length >= 3) ? parseInt(process.argv[2]) : (process.env.PORT || 3000));\n  app.set('views', __dirname + '/views');\n  app.set('view engine', 'ejs');\n  app.use(express.logger('dev'));\n  // TODO decide on an official path for the favicon\n  // app.use(express.favicon());\n  app.use(express.bodyParser());\n  app.use(express.cookieParser('some secret'));\n  app.use(express.cookieSession());\n  // app.use(express.csrf());\n  app.use('/static', express.static(path.join(__dirname, 'static')));\n});\n\napp.configure('development', function(){\n  app.use(express.errorHandler());\n});\n\nvar mongoose = require('mongoose');\nmongoose.connect(process.env.MONGO_ADDR);\n\n\nvar routes = require('./routes');\nroutes.bindTo(app);\n\napp.listen(app.get('port'));\n"
+}
